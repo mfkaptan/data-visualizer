@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<meta charset="UTF-8">
+<html>
+<head>
+    <script src="processing.js"></script>
+    <link rel="stylesheet" href="style.css"/>
+</head>
+
+<h1>Microphone Visualiser</h1>
+
+<p>
+<canvas id="canvas1"></canvas>
+</p>
+
+<script id="script1">
+    var sock = null;
+    var ellog = null;
+
+    window.onload = function() 
+    {
+        var wsuri;
+        ellog = document.getElementById('log');
+
+        // To change
+        if (window.location.protocol === "file:") 
+        {
+            // Change here with your servers address
+            wsuri = "ws://localhost:9000";
+        } 
+        else 
+        {
+            wsuri = "ws://" + window.location.hostname + ":9000";
+        }
+
+        if("WebSocket" in window) 
+        {
+            sock = new WebSocket(wsuri);
+        } 
+        else if("MozWebSocket" in window) 
+        {
+            sock = new MozWebSocket(wsuri);
+        } 
+        else 
+        {
+            log("Browser does not support WebSocket!");
+            window.location = "http://autobahn.ws/unsupportedbrowser";
+        }
+        
+        /* Array that contains mic. signal data */
+        micArray = new Array();
+        /* How many bars you want */
+        var barNo = 40;
+        for(i = 0; i < barNo; i++)
+            micArray[i] = 0;
+        /* Global variables */
+        var WIDTH = 1000;
+        var HEIGHT = 500;
+        var THICK = 4;
+        var BACKGROUND = 250;
+        var SPACE = WIDTH/barNo ;
+
+        /* Visualisation with bars */
+        /* Uncomment this if you want bars */
+        /* You should comment 'lines' in 'if(sock)' section*/
+        
+        // function Bars(processing) 
+        // {
+        // //var canvas1 = document.getElementById("canvas1");
+
+        //     processing.size(WIDTH, HEIGHT);
+        //     processing.strokeWeight(THICK);
+
+        //     processing.draw = function(micArray) 
+        //     {
+        //         processing.background(BACKGROUND);
+
+        //         for(i = 0; i < WIDTH; i += SPACE) 
+        //             processing.line(i + THICK,
+        //                             HEIGHT,
+        //                             i + THICK,
+        //                             HEIGHT - micArray[i/SPACE]);
+        //     };
+        // }
+        // var bars = new Processing("canvas1", Bars);
+        
+
+        /* Visualisation with lines */
+        /* Uncomment this if you want lines */
+        /* You should comment 'bars' in'if(sock)' section */
+
+        function Lines(processing)
+        {
+            processing.size(WIDTH, HEIGHT);
+            processing.strokeWeight(THICK);
+
+            processing.draw = function(micArray) 
+            {
+                if(micArray != null)
+                {
+                    /* Clear the screen */
+                    processing.background(BACKGROUND);
+
+                    /* Draw delta = yleft - yprevious */ 
+                    for(i = 0; i < WIDTH-SPACE; i += SPACE) 
+                        processing.line(i + THICK,
+                                        HEIGHT - micArray[i/SPACE],
+                                        i + THICK,
+                                        HEIGHT - micArray[i/SPACE + 1]);
+                }
+
+            }
+        }
+        var lines = new Processing("canvas1", Lines);
+
+        if(sock)
+        {
+            sock.onopen = function() 
+            {
+                log("Connected to " + wsuri);
+            }
+
+            sock.onclose = function(e) 
+            {
+                log("Connection closed (wasClean = " + e.wasClean + 
+                                        ", code = " + e.code + 
+                                        ", reason = '" + e.reason + "')");
+                sock = null;
+                lines.exit()
+                //bars.exit();
+            }
+
+            sock.onmessage = function(e) 
+            {
+                var num = parseInt(e.data,10);
+                micArray.shift();
+                micArray.push(num);
+
+                lines.draw(micArray);
+                
+                //bars.draw(micArray);
+
+                /* Debug */
+                //log(e.data);
+            }
+        }
+    }
+
+    function log(m) 
+    {
+        ellog.innerHTML += m + '\n';
+        ellog.scrollTop = ellog.scrollHeight;
+    }
+
+</script>
+
+<h1>Autobahn Log</h1>
+<noscript>You must enable JavaScript</noscript>
+<pre id="log" style="height: 10em; overflow-y: scroll; background-color: #faa;">
+</pre>
+
+<div style="height:0px;width:0px;overflow:hidden;"></div>
+
+</body>
+</html>
